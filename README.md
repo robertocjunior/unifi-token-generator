@@ -19,7 +19,7 @@ A maneira mais fácil de instalar e usar o gerador de vouchers é através do Do
       unifi-portal:
         image: <IMAGEM_DO_REPOSITORIO>  # Substitua por sua imagem Docker, se aplicável
         build:
-          context: .
+          context: https://github.com/robertocjunior/unifi-token-generator.git
         container_name: unifi_portal_service
         ports:
           - "80:80"

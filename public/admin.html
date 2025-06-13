@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuração do Portal UniFi</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; box-sizing: border-box; }
+        .container { background: white; padding: 25px 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
+        h1 { color: #333; margin-top: 0; text-align: center; margin-bottom: 25px; }
+        label { display: block; margin-top: 1rem; margin-bottom: 0.5rem; color: #555; font-weight: bold; }
+        input[type="text"], input[type="password"], input[type="url"] {
+            width: 100%;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 1rem;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #509954; /* Cor principal */
+            color: white;
+            padding: 12px 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 1.5rem;
+            transition: background-color 0.3s;
+        }
+        button:hover { background-color: #438246; /* Cor principal hover */ }
+        .message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 5px;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Configurações do UniFi Controller</h1>
+        <form id="configForm">
+            <label for="controllerUrl">URL do Controller:</label>
+            <input type="url" id="controllerUrl" name="controllerUrl" placeholder="ex: https://localhost:8443" required>
+
+            <label for="siteId">Site ID:</label>
+            <input type="text" id="siteId" name="siteId" placeholder="ex: default ou 23hj32jo" required>
+
+            <label for="username">Usuário do Controller:</label>
+            <input type="text" id="username" name="username" required>
+
+            <label for="password">Senha do Controller:</label>
+            <input type="password" id="password" name="password" required>
+
+            <button type="submit">Salvar Configurações</button>
+        </form>
+        <div id="statusMessage" class="message" style="display:none;"></div>
+    </div>
+
+    <script>
+        document.getElementById('configForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            const statusMessage = document.getElementById('statusMessage');
+
+            statusMessage.style.display = 'none';
+            statusMessage.className = 'message'; // Reseta classes de cor
+
+            try {
+                // A requisição é feita para a mesma origem/porta (3000 neste caso)
+                const response = await fetch('/api/save-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    statusMessage.textContent = result.message || 'Configurações salvas com sucesso!';
+                    statusMessage.classList.add('success');
+                    document.getElementById('configForm').reset(); // Limpa o formulário
+                } else {
+                    throw new Error(result.error || 'Erro desconhecido ao salvar configurações.');
+                }
+            } catch (err) {
+                statusMessage.textContent = `Erro: ${err.message}`;
+                statusMessage.classList.add('error');
+            }
+            statusMessage.style.display = 'block';
+        });
+    </script>
+</body>
+</html>

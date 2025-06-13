@@ -1,21 +1,13 @@
 services:
   unifi-portal:
+    image: unifi-portal-app
     build:
-      context: . # O contexto de build é o diretório atual (onde está o Dockerfile)
-      dockerfile: Dockerfile
-    image: unifi-portal-app # Nome opcional para a imagem construída
-    container_name: unifi_portal_service # Nome para o contêiner em execução
+      context: https://github.com/robertocjunior/unifi-token-generator.git
+    container_name: unifi_portal_service
     ports:
-      - "80:80" # Mapeia a porta 80 do HOST para a porta 80 do CONTÊINER
-    restart: unless-stopped # Política de reinício: reinicia a menos que parado manualmente
-    # Opcional: Montar o arquivo de configuração como um volume para persistência
-    # Certifique-se de que o arquivo unifi_config.json exista no mesmo diretório do docker-compose.yml
-    # ou ajuste o caminho.
-    volumes:
-      - ./unifi_config.json:/usr/src/app/unifi_config.json
-    # Opcional, mas recomendado para produção: Definir variáveis de ambiente para chaves de criptografia
-    # Substitua pelos seus valores reais ou use um arquivo .env
+      - "80:80"
+    restart: unless-stopped
     environment:
       - UNIFI_CRYPTO_KEY=${UNIFI_CRYPTO_KEY:-c1a7b3f2e5d609c8a1b3f4e5d609c8a1b3f2e5d609c8a1b3f2e5d609c8a1b3f2}
       - UNIFI_CRYPTO_IV=${UNIFI_CRYPTO_IV:-f0e1d2c3b4a5968778695a4b3c2d1e0f}
-      # Adicione outras variáveis de ambiente que seu server.js possa precisar
+      # Adicione outras variáveis de ambiente necessárias

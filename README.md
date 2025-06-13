@@ -13,11 +13,9 @@ A maneira mais fácil de instalar e usar o gerador de vouchers é através do Do
     Crie um arquivo chamado `docker-compose.yml` em um diretório de sua escolha no seu computador com o seguinte conteúdo. Este arquivo instruirá o Docker Compose a baixar os arquivos diretamente do repositório:
 
     ```yaml
-    version: '3.8'
-
     services:
       unifi-portal:
-        image: <IMAGEM_DO_REPOSITORIO>  # Substitua por sua imagem Docker, se aplicável
+        image: unifi-portal-app
         build:
           context: https://github.com/robertocjunior/unifi-token-generator.git
         container_name: unifi_portal_service

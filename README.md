@@ -8,16 +8,9 @@ Este projeto permite gerar vouchers para acesso à rede UniFi Controller de form
 
 A maneira mais fácil de instalar e usar o gerador de vouchers é através do Docker. Você precisará ter o Docker e o Docker Compose instalados em sua máquina.
 
-1.  **Clone o repositório:**
-    ```bash
-    git clone <URL_DO_REPOSITORIO>
-    cd unifi-portal
-    ```
-    _Substitua `<URL_DO_REPOSITORIO>` pelo link real do seu repositório._
+1.  **Crie um arquivo `docker-compose.yml`:**
 
-2.  **Crie ou ajuste o arquivo `docker-compose.yml`:**
-
-    Se o arquivo `docker-compose.yml` ainda não existir ou precisar de ajustes, utilize o seguinte exemplo:
+    Crie um arquivo chamado `docker-compose.yml` em um diretório de sua escolha no seu computador com o seguinte conteúdo. Este arquivo instruirá o Docker Compose a baixar os arquivos diretamente do repositório:
 
     ```yaml
     version: '3.8'
@@ -63,7 +56,7 @@ Se você quiser rodar o projeto diretamente com o Node.js (sem Docker):
 
 1.  **Clone o repositório:**
     ```bash
-    git clone <URL_DO_REPOSITORIO>
+    git clone https://github.com/robertocjunior/unifi-token-generator.git
     cd unifi-portal
     ```
 

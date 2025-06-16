@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerador de Voucher UniFi</title>
+    <!-- Link para a fonte do ícone Material Symbols -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=wifi" />
+    <!-- Favicon usando o ícone wifi do Material Symbols via SVG inline -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23509954'><text x='50%' y='50%' style='font-size: 20px; font-family: Material Symbols Rounded;' dominant-baseline='middle' text-anchor='middle'>wifi</text></svg>">
+    <title>Gerador de Voucher UniFi</title>
     <style>
         /* Define a cor principal como uma variável CSS para fácil manutenção */
         :root {
@@ -125,7 +130,7 @@
         }
 
         .ticket-style .token-code {
-            font-size: 1.5rem;
+            font-size: 2.5rem; /* Aumentado para números maiores */
             font-weight: bold;
             color: var(--cor-principal); /* Usa a cor principal */
             word-wrap: break-word;
@@ -196,8 +201,14 @@
                 throw new Error(data.error || 'Erro desconhecido no servidor.');
             }
 
-            // resultDiv.className = 'ticket-style'; // Já está definido
-            tokenCodeSpan.textContent = data.token; // Mostra o token recebido
+            let displayToken = data.token;
+            // Formata o token para XXXX-XXXX se ele tiver 8 caracteres
+            if (data.token && data.token.length === 8) {
+                displayToken = `${data.token.substring(0, 4)}-${data.token.substring(4, 8)}`;
+            } else if (data.token && data.token.length > 0) { // Para tokens de outros tamanhos, exibe como está
+                displayToken = data.token;
+            }
+            tokenCodeSpan.textContent = displayToken;
 
         } catch (error) {
             resultDiv.className = 'ticket-style error'; // Adiciona a classe 'error' ao ticket

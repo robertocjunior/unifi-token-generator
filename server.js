@@ -33,23 +33,16 @@ function decrypt(encryptedText) {
 async function saveConfig(configData) {
     try {
         const dataToStore = {
-            controllerUrl: configData.controllerUrl.replace(/\/+$/, ''),
+            controllerUrl: configData.controllerUrl.replace(/\/+$/, ''), // Remove uma ou mais barras finais
             siteId: configData.siteId,
+            username: configData.username,
+            // Criptografa apenas a senha para este exemplo, mas você pode criptografar mais campos
+            password: encrypt(configData.password)
         };
-
-        if (configData.apiToken) {
-            dataToStore.apiToken = encrypt(configData.apiToken);
-            // Se um token de API for fornecido, não armazenamos username/password para autenticação
-            delete dataToStore.username;
-            delete dataToStore.password;
-        } else if (configData.username && configData.password) {
-            dataToStore.username = configData.username;
-            dataToStore.password = encrypt(configData.password);
-            delete dataToStore.apiToken;
-        } else {
-            throw new Error('Dados de autenticação insuficientes. Forneça um token de API ou nome de usuário e senha.');
-        }
-        await fs.writeFile(CONFIG_FILE_PATH, JSON.stringify(dataToStore, null, 2));
+        // Para criptografar o objeto inteiro:
+        // const encryptedData = encrypt(JSON.stringify(configData));
+        // await fs.writeFile(CONFIG_FILE_PATH, JSON.stringify({ data: encryptedData }));
+        await fs.writeFile(CONFIG_FILE_PATH, JSON.stringify(dataToStore, null, 2)); // Salva com a senha criptografada
         console.log('Configuração salva com sucesso em:', CONFIG_FILE_PATH);
     } catch (error) {
         console.error('Erro ao salvar configuração:', error);
@@ -63,23 +56,28 @@ async function loadConfig() {
     try {
         const fileContent = await fs.readFile(CONFIG_FILE_PATH, 'utf8');
         const parsedConfig = JSON.parse(fileContent);
-        
-        let tempConfig = {
-            CONTROLLER_URL: parsedConfig.controllerUrl,
-            SITE_ID: parsedConfig.siteId,
-        };
 
-        if (parsedConfig.apiToken) {
-            tempConfig.API_TOKEN = decrypt(parsedConfig.apiToken);
-            // Opcionalmente, carregar username se presente, mas não para autenticação
-            // if (parsedConfig.username) tempConfig.USERNAME = parsedConfig.username; 
-        } else if (parsedConfig.username && parsedConfig.password) {
-            tempConfig.USERNAME = parsedConfig.username;
-            tempConfig.PASSWORD = decrypt(parsedConfig.password);
+        // Se você criptografou o objeto inteiro, use este bloco:
+        // if (parsedConfig.data) {
+        //     const decryptedData = decrypt(parsedConfig.data);
+        //     currentConfig = JSON.parse(decryptedData);
+        // } else { throw new Error('Formato de arquivo de configuração inválido (sem data).');}
+
+        // Se criptografou apenas a senha:
+        if (parsedConfig.password) {
+            currentConfig = {
+                ...parsedConfig,
+                PASSWORD: decrypt(parsedConfig.password) // Renomeia para maiúsculas para consistência interna
+            };
+             // Renomeia para maiúsculas para consistência interna
+            currentConfig.CONTROLLER_URL = parsedConfig.controllerUrl;
+            currentConfig.SITE_ID = parsedConfig.siteId;
+            currentConfig.USERNAME = parsedConfig.username;
+
         } else {
-            throw new Error('Configuração de autenticação inválida. Forneça um token de API ou nome de usuário/senha no arquivo.');
+            throw new Error('Formato de arquivo de configuração inválido (sem senha criptografada).');
         }
-        currentConfig = tempConfig;
+
         console.log('Configuração carregada com sucesso.');
         return currentConfig;
     } catch (error) {
@@ -113,24 +111,12 @@ mainApp.get('/admin-config', (req, res) => {
 
 // Rota para salvar as configurações (usada pela página de admin)
 mainApp.post('/api/save-config', async (req, res) => {
-    const { controllerUrl, siteId, username, password, apiToken } = req.body;
-
-    if (!controllerUrl || !siteId) {
-        return res.status(400).json({ error: 'URL do Controller e Site ID são obrigatórios.' });
+    const { controllerUrl, siteId, username, password } = req.body;
+    if (!controllerUrl || !siteId || !username || !password) {
+        return res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
     }
-
-    const configPayload = { controllerUrl, siteId };
-    if (apiToken) { // Prioriza token de API se fornecido
-        configPayload.apiToken = apiToken;
-    } else if (username && password) {
-        configPayload.username = username;
-        configPayload.password = password;
-    } else {
-        return res.status(400).json({ error: 'Forneça um token de API ou nome de usuário e senha.' });
-    }
-
     try {
-        await saveConfig(configPayload);
+        await saveConfig({ controllerUrl, siteId, username, password });
         await loadConfig(); // Recarrega a configuração
         res.json({ message: 'Configurações salvas com sucesso!' });
     } catch (error) {
@@ -140,11 +126,12 @@ mainApp.post('/api/save-config', async (req, res) => {
 });
 
 mainApp.post('/api/gerar-token', async (req, res) => {
-    if (!currentConfig || !currentConfig.CONTROLLER_URL || !(currentConfig.API_TOKEN || (currentConfig.USERNAME && currentConfig.PASSWORD))) {
-        return res.status(503).json({ error: 'O sistema não está configurado corretamente. Por favor, acesse a página de administração.' });
+    if (!currentConfig || !currentConfig.CONTROLLER_URL) { // Verifica se a config foi carregada
+        return res.status(503).json({ error: 'O sistema não está configurado. Por favor, acesse a página de administração para configurar as credenciais do UniFi Controller.' });
     }
 
-    const { CONTROLLER_URL, SITE_ID, USERNAME, PASSWORD, API_TOKEN } = currentConfig;
+    // Usa as variáveis de currentConfig que foram carregadas e processadas
+    const { CONTROLLER_URL, SITE_ID, USERNAME, PASSWORD } = currentConfig;
     const { expiration } = req.body;
 
     if (!expiration) {
@@ -155,33 +142,25 @@ mainApp.post('/api/gerar-token', async (req, res) => {
         rejectUnauthorized: false, // CUIDADO: Ignora a validação do certificado SSL.
     });
 
-    let authHeaders = {};
     let cookie;
 
     try {
-        if (API_TOKEN) {
-            authHeaders['Authorization'] = `Bearer ${API_TOKEN}`;
-            // Nenhum login/logout necessário para token de API
-        } else {
-            // Autenticação baseada em credenciais (usuário/senha)
-            const loginResponse = await fetch(`${CONTROLLER_URL}/api/login`, {
-                method: 'POST',
-                agent: httpsAgent,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: USERNAME, password: PASSWORD }),
-            });
+        const loginResponse = await fetch(`${CONTROLLER_URL}/api/login`, {
+            method: 'POST',
+            agent: httpsAgent,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: USERNAME, password: PASSWORD }),
+        });
 
-            if (!loginResponse.ok) {
-                const errorBody = await loginResponse.text();
-                console.error(`Falha no login - Status: ${loginResponse.status}, Corpo: ${errorBody}`);
-                throw new Error(`Falha no login no UniFi Controller (status: ${loginResponse.status}). Verifique as credenciais e a URL do controller.`);
-            }
-            
-            cookie = loginResponse.headers.get('set-cookie');
-            if (!cookie) {
-                throw new Error('Falha no login: Nenhum cookie de sessão retornado. Verifique as credenciais.');
-            }
-            authHeaders['Cookie'] = cookie;
+        if (!loginResponse.ok) {
+            const errorBody = await loginResponse.text();
+            console.error(`Falha no login - Status: ${loginResponse.status}, Corpo: ${errorBody}`);
+            throw new Error(`Falha no login no UniFi Controller (status: ${loginResponse.status}). Verifique as credenciais e a URL do controller.`);
+        }
+        
+        cookie = loginResponse.headers.get('set-cookie');
+        if (!cookie) {
+            throw new Error('Falha no login: Nenhum cookie de sessão retornado. Verifique as credenciais.');
         }
 
         const uniqueNote = 'token-' + Date.now();
@@ -190,7 +169,7 @@ mainApp.post('/api/gerar-token', async (req, res) => {
             agent: httpsAgent,
             headers: {
                 'Content-Type': 'application/json',
-                ...authHeaders,
+                'Cookie': cookie,
             },
             body: JSON.stringify({
                 cmd: 'create-voucher',
@@ -213,7 +192,7 @@ mainApp.post('/api/gerar-token', async (req, res) => {
             agent: httpsAgent,
             headers: { 
                 'Content-Type': 'application/json',
-                ...authHeaders,
+                'Cookie': cookie 
             },
             body: JSON.stringify({}),
         });
@@ -243,8 +222,7 @@ mainApp.post('/api/gerar-token', async (req, res) => {
         console.error('Erro no processo de geração de token:', error.message);
         res.status(500).json({ error: error.message || 'Erro interno do servidor ao gerar token.' });
     } finally {
-        // Logout apenas se a autenticação foi baseada em cookie (não token de API)
-        if (cookie && CONTROLLER_URL && !API_TOKEN) {
+        if (cookie && CONTROLLER_URL) {
             try {
                 await fetch(`${CONTROLLER_URL}/api/logout`, {
                     method: 'POST',

@@ -4,28 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerador de Voucher UniFi</title>
-    <!-- Link para a fonte do ícone Material Symbols -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=wifi" />
-    <!-- Favicon usando o ícone wifi do Material Symbols via SVG inline -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23509954'><text x='50%' y='50%' style='font-size: 20px; font-family: Material Symbols Rounded;' dominant-baseline='middle' text-anchor='middle'>wifi</text></svg>">
-    <title>Gerador de Voucher UniFi</title>
     <style>
-        /* Define a cor principal como uma variável CSS para fácil manutenção */
         :root {
             --cor-principal: #509954;
-            --cor-principal-hover: #438246; /* Um tom mais escuro para o efeito hover */
+            --cor-principal-hover: #438246;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
-            flex-direction: column; /* Organiza os elementos verticalmente */
+            flex-direction: column;
             justify-content: center;
             align-items: center; 
             min-height: 100vh;
             margin: 0;
             background-color: #f4f4f9;
-            padding: 20px; /* Adiciona um pouco de espaço nas laterais em telas menores */
+            padding: 20px;
             box-sizing: border-box;
         }
 
@@ -35,14 +31,11 @@
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             text-align: center; 
-            width: 350px; /* Largura um pouco menor */
-            margin-bottom: 20px; /* Espaço entre os controles e o ticket */
+            width: 350px;
+            margin-bottom: 20px;
         }
 
-        h1 {
-            color: #333;
-            margin-top: 0;
-        }
+        h1 { color: #333; margin-top: 0; }
 
         label {
             display: block;
@@ -53,7 +46,7 @@
             font-weight: bold;
         }
 
-        select, button {
+        select, button, input[type="number"] {
             width: 100%;
             padding: 12px;
             border-radius: 5px;
@@ -62,8 +55,23 @@
             box-sizing: border-box;
         }
 
+        /* Estilo para a área de tempo personalizado */
+        #custom-options {
+            margin-top: 10px;
+            display: none; /* Oculto por padrão */
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px dashed #ccc;
+        }
+
+        .custom-row {
+            display: flex;
+            gap: 10px;
+        }
+
         button {
-            background-color: var(--cor-principal); /* Usa a cor principal */
+            background-color: var(--cor-principal);
             color: white;
             border: none;
             cursor: pointer;
@@ -72,25 +80,17 @@
             font-weight: bold;
         }
 
-        button:hover {
-            background-color: var(--cor-principal-hover); /* Usa a cor de hover */
-        }
+        button:hover { background-color: var(--cor-principal-hover); }
+        button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
 
-        button:disabled {
-            background-color: #a0a0a0;
-            cursor: not-allowed;
-        }
-
-        /* Estilo base do resultado */
         #result {
-            width: 250px; /* Largura um pouco menor */
+            width: 250px;
             margin-top: 1rem;
             transition: all 0.3s ease-in-out;
         }
 
-        /* NOVO: Estilo do Ticket (fora do container principal) */
         .ticket-style {
-            background-color: #fffacd; /* Um tom de amarelo mais perceptível (LemonChiffon) */
+            background-color: #fffacd;
             border: 2px dashed #e0e0e0;
             border-radius: 5px;
             padding: 20px;
@@ -99,28 +99,18 @@
             opacity: 1;
         }
 
-        .ticket-style::before,
-        .ticket-style::after {
+        .ticket-style::before, .ticket-style::after {
             content: '';
             position: absolute;
-            width: 60px; /* Furos maiores */
-            height: 60px; /* Furos maiores */
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
-            background-color: #f4f4f9; /* Cor de fundo da página para simular o furo */
-            border: none; /* Remove a borda para que pareça um recorte */
+            background-color: #f4f4f9;
+            border: none;
         }
 
-        .ticket-style::before {
-            left: -35px; /* Ajustado para o novo tamanho (metade da largura) */
-            top: 50%;
-            transform: translateY(-50%);
-        }
-
-        .ticket-style::after {
-            right: -35px; /* Ajustado para o novo tamanho (metade da largura) */
-            top: 50%;
-            transform: translateY(-50%);
-        }
+        .ticket-style::before { left: -35px; top: 50%; transform: translateY(-50%); }
+        .ticket-style::after { right: -35px; top: 50%; transform: translateY(-50%); }
 
         .ticket-style .label {
             display: block;
@@ -130,25 +120,20 @@
         }
 
         .ticket-style .token-code {
-            font-size: 2.5rem; /* Aumentado para números maiores */
+            font-size: 2.5rem;
             font-weight: bold;
-            color: var(--cor-principal); /* Usa a cor principal */
+            color: var(--cor-principal);
             word-wrap: break-word;
-            font-family: monospace; /* Fonte monoespaçada para parecer código */
-            letter-spacing: 0.1em; /* Espaçamento entre as letras para melhor visualização */
+            font-family: monospace;
+            letter-spacing: 0.1em;
         }
 
-        /* Estilo para quando um erro é exibido dentro do ticket */
         .ticket-style.error .token-code {
-            color: #dc3545; /* Cor vermelha para erros */
-            font-size: 1rem; /* Tamanho de fonte um pouco menor para mensagens de erro */
-            font-weight: normal; /* Peso normal, não negrito como o token */
-            letter-spacing: normal; /* Espaçamento normal para melhor legibilidade do erro */
+            color: #dc3545;
+            font-size: 1rem;
+            font-weight: normal;
+            letter-spacing: normal;
         }
-        /* A classe #result.status e #result.error não são mais necessárias da forma anterior,
-           pois o estado é gerenciado dentro da estrutura do ticket.
-        */
-
     </style>
 </head>
 <body>
@@ -163,7 +148,20 @@
         <option value="240">4 Horas</option>
         <option value="480">8 Horas</option>
         <option value="1440">24 Horas</option>
+        <option value="custom">Personalizado...</option>
     </select>
+
+    <div id="custom-options">
+        <label style="margin-top: 0; font-size: 0.9rem;">Defina o tempo:</label>
+        <div class="custom-row">
+            <input type="number" id="customTime" placeholder="Qtd" min="1" value="1">
+            <select id="customUnit">
+                <option value="minutes">Minutos</option>
+                <option value="hours">Horas</option>
+                <option value="days">Dias</option>
+            </select>
+        </div>
+    </div>
     
     <button id="generateBtn">Gerar Token</button>
 </div>
@@ -176,43 +174,75 @@
 <script>
     const generateBtn = document.getElementById('generateBtn');
     const expirationSelect = document.getElementById('expiration');
+    const customOptionsDiv = document.getElementById('custom-options');
+    const customTimeInput = document.getElementById('customTime');
+    const customUnitSelect = document.getElementById('customUnit');
     const resultDiv = document.getElementById('result');
-    const tokenCodeSpan = resultDiv.querySelector('.token-code'); // Seleciona o span do token uma vez
+    const tokenCodeSpan = resultDiv.querySelector('.token-code');
+
+    // Exibir ou ocultar opções personalizadas
+    expirationSelect.addEventListener('change', () => {
+        if (expirationSelect.value === 'custom') {
+            customOptionsDiv.style.display = 'block';
+        } else {
+            customOptionsDiv.style.display = 'none';
+        }
+    });
 
     generateBtn.addEventListener('click', async () => {
         generateBtn.disabled = true;
+        resultDiv.className = 'ticket-style'; 
+        tokenCodeSpan.textContent = 'Gerando...';
 
-        resultDiv.className = 'ticket-style'; // Garante o estilo base do ticket e remove a classe 'error' se houver
-        tokenCodeSpan.textContent = 'Gerando...'; // Mostra "Gerando..." no lugar do token
         try {
-            // A chamada agora é para o nosso próprio backend, de forma segura e sem CORS.
+            let finalExpirationMinutes;
+
+            // Lógica para calcular o tempo
+            if (expirationSelect.value === 'custom') {
+                const timeValue = parseInt(customTimeInput.value);
+                const unitValue = customUnitSelect.value;
+
+                if (!timeValue || timeValue <= 0) {
+                    throw new Error('Por favor, insira um tempo válido maior que zero.');
+                }
+
+                if (unitValue === 'minutes') {
+                    finalExpirationMinutes = timeValue;
+                } else if (unitValue === 'hours') {
+                    finalExpirationMinutes = timeValue * 60;
+                } else if (unitValue === 'days') {
+                    finalExpirationMinutes = timeValue * 1440; // 60 * 24
+                }
+            } else {
+                finalExpirationMinutes = expirationSelect.value;
+            }
+
+            // Envia para o backend (que espera o valor em minutos)
             const response = await fetch('/api/gerar-token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    expiration: expirationSelect.value 
+                    expiration: finalExpirationMinutes 
                 })
             });
 
             const data = await response.json();
 
             if (!response.ok) {
-                // Se a resposta não for OK, lança um erro com a mensagem do servidor.
                 throw new Error(data.error || 'Erro desconhecido no servidor.');
             }
 
             let displayToken = data.token;
-            // Formata o token para XXXX-XXXX se ele tiver 8 caracteres
             if (data.token && data.token.length === 8) {
                 displayToken = `${data.token.substring(0, 4)}-${data.token.substring(4, 8)}`;
-            } else if (data.token && data.token.length > 0) { // Para tokens de outros tamanhos, exibe como está
+            } else if (data.token) {
                 displayToken = data.token;
             }
             tokenCodeSpan.textContent = displayToken;
 
         } catch (error) {
-            resultDiv.className = 'ticket-style error'; // Adiciona a classe 'error' ao ticket
-            tokenCodeSpan.textContent = error.message; // Mostra a mensagem de erro no lugar do token
+            resultDiv.className = 'ticket-style error';
+            tokenCodeSpan.textContent = error.message;
         } finally {
             generateBtn.disabled = false;
         }

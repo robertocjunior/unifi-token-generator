@@ -2,12 +2,15 @@ services:
   unifi-portal:
     image: unifi-portal-app
     build:
-      context: https://github.com/robertocjunior/unifi-token-generator.git
+      context: . # Assumindo que o Dockerfile está na mesma pasta
     container_name: unifi_portal_service
     ports:
       - "80:80"
     restart: unless-stopped
     environment:
-      - UNIFI_CRYPTO_KEY=${UNIFI_CRYPTO_KEY:-c1a7b3f2e5d609c8a1b3f4e5d609c8a1b3f2e5d609c8a1b3f2e5d609c8a1b3f2}
-      - UNIFI_CRYPTO_IV=${UNIFI_CRYPTO_IV:-f0e1d2c3b4a5968778695a4b3c2d1e0f}
-      # Adicione outras variáveis de ambiente necessárias
+      - UNIFI_CONTROLLER_URL=https://192.168.1.10:8443
+      - UNIFI_SITE_ID=default
+      - UNIFI_USERNAME=seu_usuario
+      - UNIFI_PASSWORD=sua_senha
+      # Variáveis de criptografia não são mais estritamente necessárias se usar apenas ENV,
+      # mas pode manter se quiser compatibilidade com o modo antigo de arquivo.

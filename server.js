@@ -1,21 +1,20 @@
 // server.js
+require('dotenv').config(); // Carrega variáveis do arquivo .env se existir
 const express = require('express');
 const fetch = require('node-fetch');
 const https = require('https');
-const fs = require('fs').promises; // Usar a versão de promises do fs
+const fs = require('fs').promises;
 const crypto = require('crypto');
 const path = require('path');
 
-// --- Configuração de Criptografia ---
+// --- Configuração de Criptografia (Mantida para legado/fallback) ---
 const ALGORITHM = 'aes-256-cbc';
-// IMPORTANTE: Em produção, use variáveis de ambiente para a chave e IV!
-// Para gerar uma chave segura (32 bytes): crypto.randomBytes(32).toString('hex')
-// Para gerar um IV seguro (16 bytes): crypto.randomBytes(16).toString('hex')
-const SECRET_KEY_HEX = process.env.UNIFI_CRYPTO_KEY || 'c1a7b3f2e5d609c8a1b3f4e5d609c8a1b3f2e5d609c8a1b3f2e5d609c8a1b3f2'; // 64 chars hex
-const IV_HEX = process.env.UNIFI_CRYPTO_IV || 'f0e1d2c3b4a5968778695a4b3c2d1e0f'; // 32 chars hex
+const SECRET_KEY_HEX = process.env.UNIFI_CRYPTO_KEY || 'c1a7b3f2e5d609c8a1b3f4e5d609c8a1b3f2e5d609c8a1b3f2e5d609c8a1b3f2';
+const IV_HEX = process.env.UNIFI_CRYPTO_IV || 'f0e1d2c3b4a5968778695a4b3c2d1e0f';
 
 const CONFIG_FILE_PATH = path.join(__dirname, 'unifi_config.json');
 
+// Funções de criptografia (usadas apenas se salvar em arquivo)
 function encrypt(text) {
     const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(SECRET_KEY_HEX, 'hex'), Buffer.from(IV_HEX, 'hex'));
     let encrypted = cipher.update(text, 'utf8', 'hex');
@@ -33,16 +32,12 @@ function decrypt(encryptedText) {
 async function saveConfig(configData) {
     try {
         const dataToStore = {
-            controllerUrl: configData.controllerUrl.replace(/\/+$/, ''), // Remove uma ou mais barras finais
+            controllerUrl: configData.controllerUrl.replace(/\/+$/, ''),
             siteId: configData.siteId,
             username: configData.username,
-            // Criptografa apenas a senha para este exemplo, mas você pode criptografar mais campos
             password: encrypt(configData.password)
         };
-        // Para criptografar o objeto inteiro:
-        // const encryptedData = encrypt(JSON.stringify(configData));
-        // await fs.writeFile(CONFIG_FILE_PATH, JSON.stringify({ data: encryptedData }));
-        await fs.writeFile(CONFIG_FILE_PATH, JSON.stringify(dataToStore, null, 2)); // Salva com a senha criptografada
+        await fs.writeFile(CONFIG_FILE_PATH, JSON.stringify(dataToStore, null, 2));
         console.log('Configuração salva com sucesso em:', CONFIG_FILE_PATH);
     } catch (error) {
         console.error('Erro ao salvar configuração:', error);
@@ -51,86 +46,100 @@ async function saveConfig(configData) {
 }
 
 let currentConfig = null;
+let isUsingEnvVars = false; // Flag para saber a origem da configuração
 
 async function loadConfig() {
+    // 1. Tenta carregar via Variáveis de Ambiente (Prioridade / Mais Seguro)
+    if (process.env.UNIFI_CONTROLLER_URL && process.env.UNIFI_USERNAME && process.env.UNIFI_PASSWORD) {
+        console.log('Carregando configurações via Variáveis de Ambiente (.env)...');
+        currentConfig = {
+            CONTROLLER_URL: process.env.UNIFI_CONTROLLER_URL.replace(/\/+$/, ''),
+            SITE_ID: process.env.UNIFI_SITE_ID || 'default',
+            USERNAME: process.env.UNIFI_USERNAME,
+            PASSWORD: process.env.UNIFI_PASSWORD // Senha vem pura do .env (seguro pois está no ambiente)
+        };
+        isUsingEnvVars = true;
+        console.log('Configuração via ambiente carregada com sucesso.');
+        return currentConfig;
+    }
+
+    // 2. Fallback: Tenta carregar do arquivo JSON (Modo antigo)
     try {
+        console.log('Variáveis de ambiente não encontradas. Tentando carregar unifi_config.json...');
         const fileContent = await fs.readFile(CONFIG_FILE_PATH, 'utf8');
         const parsedConfig = JSON.parse(fileContent);
 
-        // Se você criptografou o objeto inteiro, use este bloco:
-        // if (parsedConfig.data) {
-        //     const decryptedData = decrypt(parsedConfig.data);
-        //     currentConfig = JSON.parse(decryptedData);
-        // } else { throw new Error('Formato de arquivo de configuração inválido (sem data).');}
-
-        // Se criptografou apenas a senha:
         if (parsedConfig.password) {
             currentConfig = {
-                ...parsedConfig,
-                PASSWORD: decrypt(parsedConfig.password) // Renomeia para maiúsculas para consistência interna
+                CONTROLLER_URL: parsedConfig.controllerUrl,
+                SITE_ID: parsedConfig.siteId,
+                USERNAME: parsedConfig.username,
+                PASSWORD: decrypt(parsedConfig.password)
             };
-             // Renomeia para maiúsculas para consistência interna
-            currentConfig.CONTROLLER_URL = parsedConfig.controllerUrl;
-            currentConfig.SITE_ID = parsedConfig.siteId;
-            currentConfig.USERNAME = parsedConfig.username;
-
+            isUsingEnvVars = false;
         } else {
-            throw new Error('Formato de arquivo de configuração inválido (sem senha criptografada).');
+            throw new Error('Arquivo de configuração inválido.');
         }
 
-        console.log('Configuração carregada com sucesso.');
+        console.log('Configuração via arquivo carregada com sucesso.');
         return currentConfig;
     } catch (error) {
         if (error.code === 'ENOENT') {
-            console.warn(`Arquivo de configuração (${path.basename(CONFIG_FILE_PATH)}) não encontrado.`);
+            console.warn(`Arquivo de configuração não encontrado e variáveis de ambiente ausentes.`);
         } else {
-            console.error('Erro ao carregar ou descriptografar configuração:', error.message);
+            console.error('Erro ao carregar configuração:', error.message);
         }
-        currentConfig = null; // Garante que está nulo se houver falha
+        currentConfig = null;
         return null;
     }
 }
 
 // =============================================
-// === Servidor Principal de Voucher (Porta 80) ===
+// === Servidor Principal ===
 // =============================================
 const mainApp = express();
 const mainPort = 80;
 
-// Middleware para parsear JSON e dados de formulário URL-encoded
 mainApp.use(express.json());
-mainApp.use(express.urlencoded({ extended: true })); // Adicionado para o formulário de admin
-
-// Servir arquivos estáticos da pasta 'public' (incluindo index.html e admin.html)
+mainApp.use(express.urlencoded({ extended: true }));
 mainApp.use(express.static(path.join(__dirname, 'public')));
 
-// Rota para a página de configuração do admin
-mainApp.get('/admin-config', (req, res) => {
+// Middleware de segurança para rotas de Admin
+const adminGuard = (req, res, next) => {
+    if (isUsingEnvVars) {
+        return res.status(403).send('<h1>Acesso Negado</h1><p>A configuração está sendo gerenciada via variáveis de ambiente. A interface de administração está desativada por segurança.</p>');
+    }
+    next();
+};
+
+// Rotas de Admin (protegidas pelo adminGuard)
+mainApp.get('/admin-config', adminGuard, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// Rota para salvar as configurações (usada pela página de admin)
-mainApp.post('/api/save-config', async (req, res) => {
+mainApp.post('/api/save-config', adminGuard, async (req, res) => {
     const { controllerUrl, siteId, username, password } = req.body;
     if (!controllerUrl || !siteId || !username || !password) {
         return res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
     }
     try {
         await saveConfig({ controllerUrl, siteId, username, password });
-        await loadConfig(); // Recarrega a configuração
+        await loadConfig();
         res.json({ message: 'Configurações salvas com sucesso!' });
     } catch (error) {
-        console.error("Erro em /api/save-config:", error);
-        res.status(500).json({ error: error.message || "Erro interno ao salvar configurações." });
+        res.status(500).json({ error: error.message });
     }
 });
 
 mainApp.post('/api/gerar-token', async (req, res) => {
-    if (!currentConfig || !currentConfig.CONTROLLER_URL) { // Verifica se a config foi carregada
-        return res.status(503).json({ error: 'O sistema não está configurado. Por favor, acesse a página de administração para configurar as credenciais do UniFi Controller.' });
+    if (!currentConfig || !currentConfig.CONTROLLER_URL) {
+        // Mensagem de erro adaptada dependendo do modo
+        const msg = isUsingEnvVars 
+            ? 'Erro de configuração no servidor (.env inválido).' 
+            : 'O sistema não está configurado. Acesse /admin-config.';
+        return res.status(503).json({ error: msg });
     }
 
-    // Usa as variáveis de currentConfig que foram carregadas e processadas
     const { CONTROLLER_URL, SITE_ID, USERNAME, PASSWORD } = currentConfig;
     const { expiration } = req.body;
 
@@ -138,13 +147,11 @@ mainApp.post('/api/gerar-token', async (req, res) => {
         return res.status(400).json({ error: 'Tempo de expiração não fornecido.' });
     }
 
-    const httpsAgent = new https.Agent({
-        rejectUnauthorized: false, // CUIDADO: Ignora a validação do certificado SSL.
-    });
-
+    const httpsAgent = new https.Agent({ rejectUnauthorized: false });
     let cookie;
 
     try {
+        // 1. Login
         const loginResponse = await fetch(`${CONTROLLER_URL}/api/login`, {
             method: 'POST',
             agent: httpsAgent,
@@ -152,25 +159,17 @@ mainApp.post('/api/gerar-token', async (req, res) => {
             body: JSON.stringify({ username: USERNAME, password: PASSWORD }),
         });
 
-        if (!loginResponse.ok) {
-            const errorBody = await loginResponse.text();
-            console.error(`Falha no login - Status: ${loginResponse.status}, Corpo: ${errorBody}`);
-            throw new Error(`Falha no login no UniFi Controller (status: ${loginResponse.status}). Verifique as credenciais e a URL do controller.`);
-        }
+        if (!loginResponse.ok) throw new Error(`Falha no login (status: ${loginResponse.status}).`);
         
         cookie = loginResponse.headers.get('set-cookie');
-        if (!cookie) {
-            throw new Error('Falha no login: Nenhum cookie de sessão retornado. Verifique as credenciais.');
-        }
+        if (!cookie) throw new Error('Sem cookie de sessão.');
 
+        // 2. Criar Voucher
         const uniqueNote = 'token-' + Date.now();
         const createVoucherResponse = await fetch(`${CONTROLLER_URL}/api/s/${SITE_ID}/cmd/hotspot`, {
             method: 'POST',
             agent: httpsAgent,
-            headers: {
-                'Content-Type': 'application/json',
-                'Cookie': cookie,
-            },
+            headers: { 'Content-Type': 'application/json', 'Cookie': cookie },
             body: JSON.stringify({
                 cmd: 'create-voucher',
                 n: 1,
@@ -179,81 +178,43 @@ mainApp.post('/api/gerar-token', async (req, res) => {
             }),
         });
 
-        if (!createVoucherResponse.ok) {
-            const errorBody = await createVoucherResponse.text();
-            console.error(`Falha ao criar voucher - Status: ${createVoucherResponse.status}, Corpo: ${errorBody}`);
-            throw new Error(`Falha ao criar voucher (status: ${createVoucherResponse.status}).`);
-        }
+        if (!createVoucherResponse.ok) throw new Error('Falha ao criar comando de voucher.');
         
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Pequeno delay para garantir processamento no controller
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
+        // 3. Buscar código do Voucher
         const vouchersResponse = await fetch(`${CONTROLLER_URL}/api/s/${SITE_ID}/stat/voucher`, {
             method: 'POST',
             agent: httpsAgent,
-            headers: { 
-                'Content-Type': 'application/json',
-                'Cookie': cookie 
-            },
+            headers: { 'Content-Type': 'application/json', 'Cookie': cookie },
             body: JSON.stringify({}),
         });
 
-        if (!vouchersResponse.ok) {
-            const errorBody = await vouchersResponse.text();
-            console.error(`Falha ao buscar vouchers - Status: ${vouchersResponse.status}, Corpo: ${errorBody}`);
-            throw new Error(`Falha ao buscar vouchers (status: ${vouchersResponse.status}).`);
-        }
+        if (!vouchersResponse.ok) throw new Error('Falha ao listar vouchers.');
 
         const vouchersData = await vouchersResponse.json();
-        if (!vouchersData || !vouchersData.data) {
-            console.error('Resposta inesperada ao buscar vouchers:', vouchersData);
-            throw new Error('Resposta inesperada do UniFi Controller ao buscar vouchers.');
-        }
-
-        const createdVoucher = vouchersData.data.find(v => v.note === uniqueNote);
+        const createdVoucher = vouchersData.data ? vouchersData.data.find(v => v.note === uniqueNote) : null;
 
         if (createdVoucher) {
             res.json({ token: createdVoucher.code });
         } else {
-            console.warn('Voucher criado mas não encontrado na lista. Nota:', uniqueNote);
-            throw new Error('Voucher criado, mas não encontrado na lista. Tente novamente.');
+            throw new Error('Voucher criado mas não encontrado.');
         }
 
     } catch (error) {
-        console.error('Erro no processo de geração de token:', error.message);
-        res.status(500).json({ error: error.message || 'Erro interno do servidor ao gerar token.' });
-    } finally {
-        if (cookie && CONTROLLER_URL) {
-            try {
-                await fetch(`${CONTROLLER_URL}/api/logout`, {
-                    method: 'POST',
-                    agent: httpsAgent,
-                    headers: { 'Cookie': cookie },
-                });
-            } catch (logoutError) {
-                console.error('Erro durante o logout (ignorado):', logoutError.message);
-            }
-        }
+        console.error('Erro:', error.message);
+        res.status(500).json({ error: 'Erro ao comunicar com UniFi Controller.' });
     }
 });
 
-// Carregar configuração ao iniciar o servidor principal
 loadConfig().then(() => {
     mainApp.listen(mainPort, () => {
-        // A mensagem "Configuração carregada com sucesso." é exibida pela função loadConfig() se bem-sucedida,
-        // aparecendo antes das mensagens abaixo.
-        console.log(`Servidor de voucher rodando em http://localhost:${mainPort}`);
-        console.log(`Servidor de configuração rodando em http://localhost:${mainPort}/admin-config`);
-
-        if (!currentConfig) {
-            console.warn(`\nAVISO: As credenciais do UniFi Controller não estão configuradas ou não puderam ser carregadas.`);
-            console.warn(`       Acesse http://localhost:${mainPort}/admin-config para configurar.`);
+        console.log(`Servidor rodando em http://localhost:${mainPort}`);
+        if (isUsingEnvVars) {
+            console.log("🔒 Modo Seguro: Rota /admin-config desativada (usando .env).");
+        } else {
+            console.log("⚠️ Modo Legado: Rota /admin-config ativa.");
         }
-    });
-}).catch(err => {
-    console.error("Falha crítica ao tentar carregar a configuração inicial:", err);
-    mainApp.listen(mainPort, () => { // Tenta iniciar mesmo assim para a página de admin funcionar
-        console.log(`Servidor de voucher rodando em http://localhost:${mainPort} (com erros de configuração).`);
-        console.log(`Servidor de configuração rodando em http://localhost:${mainPort}/admin-config (disponível para correção).`);
-        console.warn(`\nAVISO: Falha ao carregar configuração. Acesse http://localhost:${mainPort}/admin-config para configurar.`);
     });
 });

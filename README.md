@@ -1,110 +1,102 @@
+
+
 # Gerador de Vouchers UniFi
 
-Este projeto permite gerar vouchers para acesso à rede UniFi Controller de forma automatizada, expondo uma interface web simples para o usuário final.
+Uma interface web simples e segura para gerar vouchers de acesso Wi-Fi (Hotspot) no UniFi Controller. Ideal para recepcionistas ou portarias, permitindo criar tickets de visitante sem dar acesso administrativo ao painel do UniFi.
 
-## Instalação e Uso
+## 🚀 Funcionalidades
 
-### Opção 1: Usando Docker (Recomendado)
+- **Interface Simples:** Geração de voucher com um clique.
+- **Tempos Personalizados:** Escolha entre predefinições (30min, 1h, etc.) ou defina um tempo exato em minutos, horas ou dias.
+- **Segurança Aprimorada:** Configuração via Variáveis de Ambiente (`.env`). Sem armazenamento de senhas em disco e sem rotas de administração expostas.
+- **Docker Ready:** Fácil de implantar com Docker Compose.
 
-A maneira mais fácil de instalar e usar o gerador de vouchers é através do Docker. Você precisará ter o Docker e o Docker Compose instalados em sua máquina.
+---
 
-1.  **Crie um arquivo `docker-compose.yml`:**
+## ⚙️ Configuração (Variáveis de Ambiente)
 
-    Crie um arquivo chamado `docker-compose.yml` em um diretório de sua escolha no seu computador com o seguinte conteúdo. Este arquivo instruirá o Docker Compose a baixar os arquivos diretamente do repositório:
+O sistema agora é configurado exclusivamente via variáveis de ambiente para maior segurança. Você deve definir as seguintes variáveis no seu `docker-compose.yml` ou arquivo `.env`:
 
-    ```yaml
-    services:
-      unifi-portal:
-        image: unifi-portal-app
-        build:
-          context: https://github.com/robertocjunior/unifi-token-generator.git
-        container_name: unifi_portal_service
-        ports:
-          - "80:80"
-        restart: unless-stopped
-        volumes:
-          - ./unifi_config.json:/usr/src/app/unifi_config.json
-        environment:
-          - UNIFI_CRYPTO_KEY=${UNIFI_CRYPTO_KEY:-c1a7b3f2e5d609c8a1b3f4e5d609c8a1b3f2e5d609c8a1b3f2e5d609c8a1b3f2}
-          - UNIFI_CRYPTO_IV=${UNIFI_CRYPTO_IV:-f0e1d2c3b4a5968778695a4b3c2d1e0f}
-          # Adicione outras variáveis de ambiente necessárias
-    ```
-    _Substitua `<IMAGEM_DO_REPOSITORIO>` pelo nome da sua imagem Docker, se você já tiver uma publicada._ Caso contrário, o `build` irá construir a imagem localmente.
+| Variável | Descrição | Exemplo |
+| :--- | :--- | :--- |
+| `UNIFI_CONTROLLER_URL` | URL do seu UniFi Controller (com https e porta). | `https://192.168.1.10:8443` |
+| `UNIFI_USERNAME` | Usuário com permissão de Hotspot no UniFi. | `admin_voucher` |
+| `UNIFI_PASSWORD` | Senha do usuário. | `MinhaSenhaSegura123` |
+| `UNIFI_SITE_ID` | ID do Site (não é o nome amigável). Padrão: `default`. | `default` ou `8y9s7d6f` |
 
-3.  **Inicie o serviço:**
+> **Dica sobre o Site ID:** Ao acessar seu controller via navegador, o ID do site aparece na URL. Ex: `https://.../manage/s/ce837s2/dashboard`. O ID é `ce837s2`. Se for o site padrão, é apenas `default`.
+
+---
+
+## 🐳 Instalação via Docker (Recomendado)
+
+1. **Crie o arquivo `docker-compose.yml`:**
+
+```yaml
+services:
+  unifi-portal:
+    image: unifi-portal-app
+    build: .
+    container_name: unifi_portal
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    environment:
+      - UNIFI_CONTROLLER_URL=[https://192.168.1.5:8443](https://192.168.1.5:8443)
+      - UNIFI_SITE_ID=default
+      - UNIFI_USERNAME=seu_usuario
+      - UNIFI_PASSWORD=sua_senha
+````
+
+2.  **Inicie o serviço:**
+
+<!-- end list -->
+
+```bash
+docker-compose up -d --build
+```
+
+3.  **Acesse:**
+    Abra `http://localhost` (ou o IP do servidor) no navegador.
+
+-----
+
+## 💻 Instalação Manual (Node.js)
+
+Se preferir rodar sem Docker para desenvolvimento:
+
+1.  **Clone o repositório e instale as dependências:**
+
     ```bash
-    docker-compose up -d
-    ```
-
-4.  **Acesse a interface:**
-
-    Abra seu navegador e vá para `http://localhost` (ou o IP da sua máquina se estiver acessando de outra rede).
-
-5.  **Configure as credenciais do UniFi:**
-
-    Acesse `http://localhost/admin-config` para inserir a URL, Site ID, usuário e senha do seu UniFi Controller. Estas informações serão armazenadas de forma criptografada.
-
-6.  **Gere vouchers:**
-
-    Na página principal (`http://localhost`), selecione o tempo de expiração desejado e clique em "Gerar Token".
-
-### Opção 2: Execução Manual (Para desenvolvimento ou testes)
-
-Se você quiser rodar o projeto diretamente com o Node.js (sem Docker):
-
-1.  **Clone o repositório:**
-    ```bash
-    git clone https://github.com/robertocjunior/unifi-token-generator.git
-    cd unifi-portal
-    ```
-
-2.  **Instale as dependências:**
-    ```bash
+    git clone [https://github.com/seu-usuario/unifi-token-generator.git](https://github.com/seu-usuario/unifi-token-generator.git)
+    cd unifi-token-generator
     npm install
     ```
 
-3.  **Crie o arquivo de configuração:**
+2.  **Crie o arquivo de configuração:**
+    Crie um arquivo chamado `.env` na raiz do projeto:
 
-    Na primeira execução, o sistema tentará criar um arquivo `unifi_config.json`. Se houver erros de permissão (o que é comum fora do contêiner Docker), você precisará criá-lo manualmente na raiz do projeto com o seguinte conteúdo (substituindo pelas suas informações):
-
-    ```json
-    {
-      "controllerUrl": "https://<SEU_UNIFI_CONTROLLER>:8443",
-      "siteId": "<SEU_SITE_ID>",
-      "username": "<SEU_USUARIO>",
-      "password": "<SUA_SENHA_CRIPTOGRAFADA>"
-    }
+    ```env
+    UNIFI_CONTROLLER_URL=[https://192.168.1.5:8443](https://192.168.1.5:8443)
+    UNIFI_SITE_ID=default
+    UNIFI_USERNAME=seu_usuario
+    UNIFI_PASSWORD=sua_senha
     ```
-    _**Importante:**_ A senha deve ser criptografada usando o mesmo algoritmo e chaves definidos no `server.js`. Se você não tiver um arquivo de configuração existente para copiar a senha criptografada, será necessário executar o servidor pelo menos uma vez (mesmo que falhe ao salvar as configurações devido à permissão de escrita), preencher o formulário de administração (`/admin-config`) e então copiar a senha criptografada do log do servidor para o `unifi_config.json` manual.  Alternativamente, você pode modificar o código temporariamente para exibir a senha criptografada no console ao salvar a configuração pela interface de administração (e depois remover essa modificação).
 
-4.  **Inicie o servidor:**
+3.  **Execute o projeto:**
+
     ```bash
     node server.js
     ```
 
-5.  **Acesse e configure:**
+-----
 
-    Abra o navegador e acesse `http://localhost:80` para usar o gerador ou `http://localhost:80/admin-config` para configurar.
+## 🛡️ Notas de Segurança
 
-## Variáveis de Ambiente (Opcional/Avançado)
+  * **Certificados SSL:** O sistema está configurado para aceitar certificados autoassinados (`rejectUnauthorized: false`), o que é comum em instalações locais do UniFi.
+  * **Usuário UniFi:** Recomenda-se criar um usuário no UniFi Controller **apenas** com permissões para gerenciar o Hotspot, em vez de usar o super-admin.
+  * **Rede:** O servidor deste portal deve ter acesso de rede à porta do Controller (padrão 8443).
 
-Para uma configuração mais segura e flexível, você pode definir as chaves de criptografia como variáveis de ambiente em vez de usar os valores padrão no código. No seu sistema ou no ambiente do Docker Compose, defina:
+## 📄 Licença
 
-*   `UNIFI_CRYPTO_KEY`: Uma chave hexadecimal de 64 caracteres (32 bytes).
-*   `UNIFI_CRYPTO_IV`: Um IV hexadecimal de 32 caracteres (16 bytes).
-
-Se essas variáveis estiverem definidas, o servidor as usará automaticamente. Caso contrário, os valores padrão no código serão utilizados.
-
-## Segurança
-
-*   O tráfego entre o servidor e o UniFi Controller (na porta 8443 por padrão) é feito via HTTPS.
-*   A senha do UniFi Controller é armazenada criptografada no arquivo `unifi_config.json`.
-*   **Aviso:** O projeto atualmente ignora a validação do certificado SSL do UniFi Controller (`rejectUnauthorized: false`). Para um ambiente de produção, é altamente recomendado obter um certificado válido para o seu Controller ou configurar o servidor para confiar em um certificado autoassinado.
-
-## Problemas Comuns
-
-*   **Erro de login (status 400):** Verifique cuidadosamente se a URL, o Site ID, o usuário e a senha do Controller estão corretos. A URL não deve ter uma barra "/" no final.
-*   **"O sistema não está configurado":** Acesse `/admin-config` para inserir as credenciais do UniFi Controller.
-*   **"Falha ao salvar o arquivo de configuração":** Verifique as permissões de escrita no diretório do projeto, especialmente se estiver executando fora do Docker. No Docker, certifique-se de que o volume para `unifi_config.json` esteja corretamente configurado no `docker-compose.yml`.
-
-Se você encontrar outros erros, verifique os logs do servidor (ex: no terminal onde você o iniciou ou usando `docker-compose logs unifi-portal`).
+Este projeto está licenciado sob a licença ISC/MIT. Sinta-se livre para modificar e usar.

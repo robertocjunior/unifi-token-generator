@@ -68,7 +68,7 @@ Se preferir rodar sem Docker para desenvolvimento:
 1.  **Clone o repositório e instale as dependências:**
 
     ```bash
-    git clone [https://github.com/seu-usuario/unifi-token-generator.git](https://github.com/seu-usuario/unifi-token-generator.git)
+    git clone https://github.com/seu-usuario/unifi-token-generator.git
     cd unifi-token-generator
     npm install
     ```

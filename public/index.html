@@ -32,6 +32,7 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             text-align: center; 
             width: 350px;
+            max-width: 100%;
             margin-bottom: 20px;
         }
 
@@ -55,10 +56,9 @@
             box-sizing: border-box;
         }
 
-        /* Estilo para a área de tempo personalizado */
         #custom-options {
             margin-top: 10px;
-            display: none; /* Oculto por padrão */
+            display: none;
             background-color: #f9f9f9;
             padding: 10px;
             border-radius: 5px;
@@ -83,8 +83,12 @@
         button:hover { background-color: var(--cor-principal-hover); }
         button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
 
+        /* --- CORREÇÃO DO TICKET AQUI --- */
         #result {
-            width: 250px;
+            /* width: 250px;  <-- REMOVIDO: Largura fixa causava a quebra */
+            width: auto;      /* Permite crescer conforme o texto */
+            min-width: 300px; /* Garante um tamanho mínimo bonito */
+            max-width: 90%;   /* Evita estourar a tela no celular */
             margin-top: 1rem;
             transition: all 0.3s ease-in-out;
         }
@@ -93,7 +97,7 @@
             background-color: #fffacd;
             border: 2px dashed #e0e0e0;
             border-radius: 5px;
-            padding: 20px;
+            padding: 20px 30px; /* Aumentado padding lateral */
             position: relative;
             text-align: center;
             opacity: 1;
@@ -123,7 +127,8 @@
             font-size: 2.5rem;
             font-weight: bold;
             color: var(--cor-principal);
-            word-wrap: break-word;
+            /* word-wrap: break-word; <-- REMOVIDO */
+            white-space: nowrap; /* <-- ADICIONADO: Impede quebra de linha */
             font-family: monospace;
             letter-spacing: 0.1em;
         }
@@ -133,6 +138,7 @@
             font-size: 1rem;
             font-weight: normal;
             letter-spacing: normal;
+            white-space: normal; /* Permite quebra de linha para mensagens de erro longas */
         }
     </style>
 </head>
@@ -180,7 +186,6 @@
     const resultDiv = document.getElementById('result');
     const tokenCodeSpan = resultDiv.querySelector('.token-code');
 
-    // Exibir ou ocultar opções personalizadas
     expirationSelect.addEventListener('change', () => {
         if (expirationSelect.value === 'custom') {
             customOptionsDiv.style.display = 'block';
@@ -197,7 +202,6 @@
         try {
             let finalExpirationMinutes;
 
-            // Lógica para calcular o tempo
             if (expirationSelect.value === 'custom') {
                 const timeValue = parseInt(customTimeInput.value);
                 const unitValue = customUnitSelect.value;
@@ -211,13 +215,12 @@
                 } else if (unitValue === 'hours') {
                     finalExpirationMinutes = timeValue * 60;
                 } else if (unitValue === 'days') {
-                    finalExpirationMinutes = timeValue * 1440; // 60 * 24
+                    finalExpirationMinutes = timeValue * 1440;
                 }
             } else {
                 finalExpirationMinutes = expirationSelect.value;
             }
 
-            // Envia para o backend (que espera o valor em minutos)
             const response = await fetch('/api/gerar-token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -233,6 +236,7 @@
             }
 
             let displayToken = data.token;
+            // Se for token padrão (8 dígitos), formata. Se for maior (como o da sua imagem), exibe direto.
             if (data.token && data.token.length === 8) {
                 displayToken = `${data.token.substring(0, 4)}-${data.token.substring(4, 8)}`;
             } else if (data.token) {

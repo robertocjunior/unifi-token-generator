@@ -42,7 +42,7 @@ services:
       - "80:80"
     restart: unless-stopped
     environment:
-      - UNIFI_CONTROLLER_URL=[https://192.168.1.5:8443](https://192.168.1.5:8443)
+      - UNIFI_CONTROLLER_URL=https://192.168.1.5:8443
       - UNIFI_SITE_ID=default
       - UNIFI_USERNAME=seu_usuario
       - UNIFI_PASSWORD=sua_senha
@@ -77,7 +77,7 @@ Se preferir rodar sem Docker para desenvolvimento:
     Crie um arquivo chamado `.env` na raiz do projeto:
 
     ```env
-    UNIFI_CONTROLLER_URL=[https://192.168.1.5:8443](https://192.168.1.5:8443)
+    UNIFI_CONTROLLER_URL=https://192.168.1.5:8443
     UNIFI_SITE_ID=default
     UNIFI_USERNAME=seu_usuario
     UNIFI_PASSWORD=sua_senha
